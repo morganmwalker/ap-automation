@@ -24,7 +24,12 @@ def get_purchase_history():
     response.raise_for_status()
     return response.json()
 
+def get_ap_transactions():
+    response = requests.get(f"{ROOT_URL}/ap/transactions?sort=-modified&limit=1000", headers=headers, auth=auth)
+    response.raise_for_status()
+    return response.json()
+
 if __name__ == "__main__":
-    active_pos = get_purchase_orders()
-    for po in active_pos["records"]:
-        print(po["number"].lstrip("0"))
+    ap_transactions = get_ap_transactions()
+    for ap in ap_transactions["records"]:
+        print(f"{ap["vendor"]["code"]} --> {ap["referenceNo"]}")
