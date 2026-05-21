@@ -14,14 +14,8 @@ print(f"Targeting Account: {account_name}")
 # Our Spire POs are 5 digits
 PO_LENGTH = 5
 
-TEMP_DIR = os.path.join(
-    os.environ["USERPROFILE"],
-    "AppData",
-    "Local",
-    "Temp",
-    "InvoiceProcessor",
-)
-os.makedirs(TEMP_DIR, exist_ok=True)
+INVOICE_OUTPUT_DIR = os.path.abspath("Invoices")
+os.makedirs(INVOICE_OUTPUT_DIR, exist_ok=True)
 
 # Extracts text from a digital PDF file
 def extract_text_from_pdf(pdf_path):
@@ -100,19 +94,24 @@ def process_invoices():
     print(f"{'Sender':<30} | {'Subject':<30} | {'PO Found':<15}")
     print("-" * 80)
 
+    # Initialize a list to hold our extracted data
+    extracted_invoices = []
+
     for message in recent_messages:
         if message.Attachments.Count == 0:
             continue
 
         for attachment in message.Attachments:
             if attachment.FileName.lower().endswith(".pdf"):
-                temp_pdf_path = os.path.join(TEMP_DIR, attachment.FileName)
-                attachment.SaveAsFile(temp_pdf_path)
+                # Define where to permanently save the invoice for printing later
+                # (Make sure INVOICE_OUTPUT_DIR is defined somewhere in your code)
+                saved_pdf_path = os.path.join(
+                    INVOICE_OUTPUT_DIR, attachment.FileName
+                )
+                attachment.SaveAsFile(saved_pdf_path)
 
-                pdf_text = extract_text_from_pdf(temp_pdf_path)
-
-                if os.path.exists(temp_pdf_path):
-                    os.remove(temp_pdf_path)
+                # Extract text for processing
+                pdf_text = extract_text_from_pdf(saved_pdf_path)
 
                 # Decision logic: Is it an invoice?
                 is_invoice = re.search(
@@ -121,20 +120,44 @@ def process_invoices():
 
                 if is_invoice:
                     candidates = list(find_all_po_candidates(pdf_text))
-                    #print(candidates)
+
                     if not candidates:
                         po_number = "Not Found"
                     elif len(candidates) == 1:
                         po_number = candidates[0]  # Perfect single match
                     else:
-                        # Multiple matches found
                         po_number = f"Verify: {candidates}"
 
-                    sender = str(message.SenderName)[:30]
+                    # Safely get the sender's email address or name
+                    try:
+                        sender_email = message.SenderEmailAddress
+                    except Exception:
+                        sender_email = message.SenderName
+
+                    sender_name = str(message.SenderName)[:30]
                     subject = str(message.Subject)[:30]
+
                     print(
-                        f"{sender:<30} | {subject:<30} | {po_number:<15}"
+                        f"{sender_name:<30} | {subject:<30} | {po_number:<15}"
                     )
+
+                    # Append the collected data to our list
+                    extracted_invoices.append(
+                        {
+                            "sender_email": sender_email,
+                            "po_candidates": candidates,
+                            "file_path": saved_pdf_path,
+                            "subject": subject,
+                        }
+                    )
+                else:
+                    # If it's not an invoice, clean up the file
+                    if os.path.exists(saved_pdf_path):
+                        os.remove(saved_pdf_path)
+
+    # Return the structured data back to your main script
+    return extracted_invoices
+                    
 
 if __name__ == "__main__":
     process_invoices()
