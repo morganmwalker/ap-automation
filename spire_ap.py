@@ -3,6 +3,7 @@ import re
 from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 import requests
+import invoices as invoice_processor
 
 # ENVIRONMENT VARIABLES
 load_dotenv()
@@ -29,7 +30,12 @@ def get_ap_transactions():
     response.raise_for_status()
     return response.json()
 
+def compare_candidates_to_purchases():
+    invoices = invoice_processor.process_invoices()
+    recent_purchases_orders = get_purchase_orders()["records"]
+    recent_purchases_orders.extend(get_purchase_history()["records"])
+    po_list = [po["number"].lstrip("0") for po in recent_purchases_orders]
+    print(po_list)
+
 if __name__ == "__main__":
-    ap_transactions = get_ap_transactions()
-    for ap in ap_transactions["records"]:
-        print(f"{ap["vendor"]["code"]} --> {ap["referenceNo"]}")
+    compare_candidates_to_purchases()
