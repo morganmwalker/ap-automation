@@ -31,7 +31,15 @@ def get_ap_transactions():
     response.raise_for_status()
     return response.json()
 
-# Returns 
+def get_vendor_emails():
+    response = requests.get(f"{ROOT_URL}/vendors?sort=-modified&limit={SPIRE_LIMIT}", headers=headers, auth=auth)
+    response.raise_for_status()
+    vendor_contact_map = {}
+    for vendor in response.json()["records"]:
+        if vendor["address"]["email"]:
+            vendor_contact_map[vendor["vendorNo"]] = vendor["address"]["email"]
+    return vendor_contact_map
+
 def compare_candidates_to_purchases():
     # Get a list of recently received invoices in inbox (past 24 hours)
     invoices = invoice_processor.process_invoices()
@@ -56,4 +64,5 @@ def compare_candidates_to_purchases():
     return invoice_to_po_map
 
 if __name__ == "__main__":
-    print(compare_candidates_to_purchases())
+    #print(compare_candidates_to_purchases())
+    print(get_vendor_emails())
