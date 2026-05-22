@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 from requests.auth import HTTPBasicAuth
 import requests
 import invoices as invoice_processor
+import spire_utils
 
 # ENVIRONMENT VARIABLES
 load_dotenv()
@@ -31,13 +32,13 @@ def get_ap_transactions():
     response.raise_for_status()
     return response.json()
 
-def get_vendor_emails():
-    response = requests.get(f"{ROOT_URL}/vendors?sort=-modified&limit={SPIRE_LIMIT}", headers=headers, auth=auth)
+def get_vendor_ar_contacts():
+    contact_filter = spire_utils.format_json_filter({"address.linkType": "VEND", "email": {"$ne":""}, "type.name": "Vend Accounts Receivable"})
+    response = requests.get(f"{ROOT_URL}/contacts?{contact_filter}&sort=-modified&limit={SPIRE_LIMIT}", headers=headers, auth=auth)
     response.raise_for_status()
     vendor_contact_map = {}
     for vendor in response.json()["records"]:
-        if vendor["address"]["email"]:
-            vendor_contact_map[vendor["vendorNo"]] = vendor["address"]["email"]
+        vendor_contact_map[vendor["address"]["linkNo"]] = vendor["email"]
     return vendor_contact_map
 
 def compare_candidates_to_purchases():
@@ -58,11 +59,13 @@ def compare_candidates_to_purchases():
     for invoice in invoices:
         for candidate in invoice["po_candidates"]:
             if candidate in po_list:
-                invoice_to_po_map[invoice["file_path"]] = po_list[candidate]
+                info = po_list[candidate]
+                info["sender_email"] = invoice["sender_email"]
+                invoice_to_po_map[invoice["file_path"]] = info
                 break
                 
     return invoice_to_po_map
 
 if __name__ == "__main__":
     #print(compare_candidates_to_purchases())
-    print(get_vendor_emails())
+    print(get_vendor_contacts())
